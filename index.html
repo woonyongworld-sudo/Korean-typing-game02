@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>한글 타자 게임</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#0f172a; color:#fff;
+  font-family:'Apple SD Gothic Neo','맑은 고딕',sans-serif;
+  height:100dvh; display:flex; flex-direction:column; overflow:hidden;
+}
+#hud {
+  display:flex; justify-content:space-around; align-items:center;
+  background:#1e293b; border-bottom:2px solid #334155;
+  padding:8px 0; flex-shrink:0;
+}
+.hb { text-align:center; }
+.hl { font-size:10px; color:#64748b; }
+.hv { font-size:22px; font-weight:900; color:#34d399; }
+#hv-lives { color:#f87171; }
+#hv-level { color:#fbbf24; }
+#ga {
+  flex:1; position:relative; overflow:hidden;
+  background:#0a0f1e;
+}
+#ground {
+  position:absolute; bottom:0; left:0; right:0;
+  height:3px; background:#ef4444;
+  box-shadow:0 0 12px #ef4444;
+}
+.wb {
+  position:absolute; top:0;
+  display:flex; gap:3px;
+  pointer-events:none; user-select:none;
+}
+.sy {
+  display:flex; align-items:center; justify-content:center;
+  font-weight:900; color:#fff;
+  background:#1e3a8a; border:2px solid #3b82f6; border-radius:8px;
+}
+.sy.ok { background:#064e3b; border-color:#34d399; color:#6ee7b7; }
+@keyframes pop {
+  0%{transform:scale(1);opacity:1}
+  60%{transform:scale(1.8);opacity:.6}
+  100%{transform:scale(0);opacity:0}
+}
+.wb.pop { animation:pop .28s ease-out forwards; }
+#combo {
+  position:absolute; top:8px; left:50%; transform:translateX(-50%);
+  font-size:16px; font-weight:900; color:#fbbf24;
+  opacity:0; transition:opacity .2s; pointer-events:none; white-space:nowrap;
+}
+#combo.on { opacity:1; }
+.pt {
+  position:fixed; border-radius:50%;
+  pointer-events:none; animation:pf .55s ease-out forwards;
+}
+@keyframes pf {
+  from{opacity:1;transform:translate(0,0)}
+  to{opacity:0;transform:translate(var(--tx),var(--ty))}
+}
+@keyframes shake {
+  0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)}
+}
+.shake { animation:shake .3s ease; }
+.lv {
+  position:fixed; top:45%; left:50%; transform:translate(-50%,-50%);
+  font-size:38px; font-weight:900; color:#fbbf24;
+  pointer-events:none; z-index:80;
+  animation:lvt 1s ease forwards;
+}
+@keyframes lvt {
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}
+  30%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}
+  70%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1)}
+}
+#iw {
+  flex-shrink:0; background:#1e293b;
+  border-top:2px solid #3b82f6; padding:10px 14px 14px;
+}
+#size-row {
+  display:flex; align-items:center; gap:10px; margin-bottom:8px;
+}
+#size-label { font-size:11px; color:#64748b; white-space:nowrap; }
+#size-slider {
+  flex:1; -webkit-appearance:none; appearance:none;
+  height:6px; border-radius:3px;
+  background:linear-gradient(to right, #34d399 0%, #34d399 var(--pct,50%), #334155 var(--pct,50%), #334155 100%);
+  outline:none; cursor:pointer;
+}
+#size-slider::-webkit-slider-thumb {
+  -webkit-appearance:none; appearance:none;
+  width:22px; height:22px; border-radius:50%;
+  background:#34d399; cursor:pointer;
+}
+#size-val { font-size:12px; color:#34d399; font-weight:700; min-width:48px; text-align:right; }
+#inp {
+  display:block; width:100%; height:50px;
+  font-size:24px; font-weight:900; font-family:inherit;
+  color:#34d399; background:#0a0f1e;
+  border:2px solid #3b82f6; border-radius:12px;
+  padding:0 16px; outline:none; caret-color:#34d399;
+}
+#inp:focus { border-color:#34d399; box-shadow:0 0 0 3px rgba(52,211,153,.2); }
+#inp::placeholder { color:#334155; font-size:14px; font-weight:400; }
+#hint { margin-top:6px; font-size:11px; color:#475569; text-align:center; }
+#ov {
+  position:fixed; inset:0; background:rgba(0,0,0,.92);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:16px; padding:28px; z-index:200;
+}
+#ov.off { display:none; }
+#ov-title { font-size:clamp(34px,11vw,58px); font-weight:900; color:#34d399; text-align:center; }
+#ov-sub { font-size:14px; color:#94a3b8; text-align:center; }
+#ov-sc {
+  background:#1e293b; border:1px solid #334155; border-radius:14px;
+  padding:14px 26px; width:100%; max-width:290px; display:none;
+}
+.sr { display:flex; justify-content:space-between; padding:5px 0; font-size:14px; }
+.sr span:last-child { color:#34d399; font-weight:700; }
+#btn {
+  width:100%; max-width:280px; height:58px;
+  font-size:22px; font-weight:900; font-family:inherit;
+  color:#0f172a; background:#34d399;
+  border:none; border-radius:14px; cursor:pointer;
+}
+#btn:active { opacity:.85; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="hb"><div class="hl">점수</div><div class="hv" id="hv-score">0</div></div>
+  <div class="hb"><div class="hl">목숨</div><div class="hv" id="hv-lives">♥♥♥</div></div>
+  <div class="hb"><div class="hl">레벨</div><div class="hv" id="hv-level">1</div></div>
+</div>
+<div id="ga">
+  <div id="combo"></div>
+  <div id="ground"></div>
+</div>
+<div id="iw">
+  <div id="size-row">
+    <span id="size-label">글씨 크기</span>
+    <input id="size-slider" type="range" min="1" max="5" value="3" step="1">
+    <span id="size-val">보통</span>
+  </div>
+  <input id="inp" type="text" inputmode="text"
+    placeholder="여기 탭 → 한글 입력"
+    autocomplete="off" autocorrect="off"
+    autocapitalize="none" spellcheck="false">
+  <div id="hint">단어를 완성하면 자동으로 터져요 💥</div>
+</div>
+<div id="ov">
+  <div id="ov-title">한글 타자</div>
+  <div id="ov-sub">떨어지는 단어를 받아치세요!</div>
+  <div id="ov-sc">
+    <div class="sr"><span>최종 점수</span><span id="fs">0</span></div>
+    <div class="sr"><span>최고 레벨</span><span id="fl">1</span></div>
+    <div class="sr"><span>최대 콤보</span><span id="fc">0</span></div>
+  </div>
+  <button id="btn">게임 시작</button>
+</div>
+<script>
+const W1=['사과','바다','하늘','구름','바람','나무','꽃','달','별','산','강','눈','비','새','물','불','땅','빛','힘','꿈','책','밥','집','문','손','발','눈물','웃음','노래','춤'];
+const W2=['고양이','강아지','토끼','수박','딸기','포도','레몬','망고','귤','복숭아','사랑해요','행복해요','감사해요','안녕하세요','반갑습니다'];
+const W3=['컴퓨터','스마트폰','인터넷','인공지능','대한민국','경복궁','봄바람','여름밤'];
+const SPEED=[0.9,1.3,1.8,2.4,3.1,3.9];
+const IVLS=[2500,2100,1700,1400,1100,900];
+const THRESH=[0,100,250,450,700,1050];
+const SIZE_STEPS=[[28,16,'아주 작게'],[36,21,'작게'],[44,26,'보통'],[54,32,'크게'],[64,38,'아주 크게']];
+let sylSize=SIZE_STEPS[2];
+function applySize(step){
+  sylSize=SIZE_STEPS[step-1];
+  const[box,fs]=sylSize;
+  document.documentElement.style.setProperty('--sy-box',box+'px');
+  document.documentElement.style.setProperty('--sy-fs',fs+'px');
+  slider.style.setProperty('--pct',((step-1)/4*100).toFixed(0)+'%');
+  document.getElementById('size-val').textContent=SIZE_STEPS[step-1][2];
+}
+const styleTag=document.createElement('style');
+styleTag.textContent='.sy{width:var(--sy-box,44px);height:var(--sy-box,44px);font-size:var(--sy-fs,26px);}';
+document.head.appendChild(styleTag);
+const slider=document.getElementById('size-slider');
+slider.addEventListener('input',function(){applySize(parseInt(this.value));});
+applySize(3);
+let score,lives,level,combo,maxCombo,running,words,uid,spawnTmr,rafId;
+function init(){score=0;lives=3;level=1;combo=0;maxCombo=0;running=false;words=[];uid=0;spawnTmr=null;rafId=null;}
+init();
+function calcLevel(){let l=1;for(let i=THRESH.length-1;i>=0;i--){if(score>=THRESH[i]){l=i+1;break;}}return Math.min(l,6);}
+function getPool(){let a=[...W1,...W2];if(level>=3)a=a.concat(W3);return a;}
+function spawn(){
+  if(!running)return;
+  const pool=getPool();
+  const word=pool[Math.floor(Math.random()*pool.length)];
+  const ga=document.getElementById('ga');
+  const chars=[...word];
+  const box=sylSize[0];
+  const bw=chars.length*(box+3);
+  const x=4+Math.random()*Math.max(0,ga.clientWidth-bw-8);
+  const el=document.createElement('div');
+  el.className='wb';el.style.left=x+'px';
+  chars.forEach(ch=>{const s=document.createElement('div');s.className='sy';s.textContent=ch;el.appendChild(s);});
+  ga.appendChild(el);
+  words.push({id:uid++,el,word,y:-(box+10)});
+}
+function tick(){
+  if(!running)return;
+  const H=document.getElementById('ga').clientHeight;
+  const spd=SPEED[level-1]||0.9;
+  const box=sylSize[0];
+  const dead=[];
+  words.forEach(w=>{w.y+=spd;w.el.style.transform=`translateY(${w.y}px)`;if(w.y+box>=H)dead.push(w);});
+  dead.forEach(w=>{kill(w,false);miss();});
+  rafId=requestAnimationFrame(tick);
+}
+function kill(w,ok){const i=words.indexOf(w);if(i>=0)words.splice(i,1);if(ok){w.el.classList.add('pop');setTimeout(()=>w.el.remove(),300);}else w.el.remove();}
+function miss(){combo=0;lives=Math.max(0,lives-1);hud();refreshCombo();const b=document.body;b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');setTimeout(()=>b.classList.remove('shake'),310);if(lives<=0)over();}
+const inp=document.getElementById('inp');
+inp.addEventListener('input',function(){const v=this.value;highlight(v);checkMatch(v);});
+function highlight(typed){words.forEach(w=>{const syls=w.el.querySelectorAll('.sy');const wc=[...w.word];let m=0;for(let i=0;i<Math.min(typed.length,wc.length);i++){if(typed[i]===wc[i])m++;else break;}syls.forEach((s,i)=>i<m?s.classList.add('ok'):s.classList.remove('ok'));});}
+function checkMatch(typed){
+  if(!typed||!running)return;
+  let hit=null;
+  words.forEach(w=>{if(w.word===typed&&(!hit||w.y>hit.y))hit=w;});
+  if(hit){onHit(hit);inp.value='';highlight('');}
+}
+function onHit(w){combo++;maxCombo=Math.max(maxCombo,combo);const base=level<=2?10:level<=4?16:25;const bon=1+Math.floor(combo/3)*.5;score+=Math.round(base*[...w.word].length*bon);burst(w.el);kill(w,true);const prev=level;level=calcLevel();if(level>prev)lvUp();hud();refreshCombo();}
+function burst(el){const r=el.getBoundingClientRect();const cx=r.left+r.width/2,cy=r.top+r.height/2;const C=['#34d399','#f87171','#fbbf24','#a78bfa','#60a5fa'];for(let i=0;i<12;i++){const p=document.createElement('div');p.className='pt';const a=(i/12)*Math.PI*2,d=28+Math.random()*40;p.style.cssText=`width:8px;height:8px;left:${cx}px;top:${cy}px;background:${C[i%5]};--tx:${(Math.cos(a)*d).toFixed(0)}px;--ty:${(Math.sin(a)*d).toFixed(0)}px;`;document.body.appendChild(p);setTimeout(()=>p.remove(),580);}}
+function hud(){document.getElementById('hv-score').textContent=score;document.getElementById('hv-level').textContent=level;document.getElementById('hv-lives').textContent='♥'.repeat(Math.max(0,lives))+'♡'.repeat(Math.max(0,3-lives));}
+let cTmr=null;
+function refreshCombo(){const el=document.getElementById('combo');clearTimeout(cTmr);if(combo>=3){el.textContent=`🔥 ${combo}콤보!`;el.classList.add('on');cTmr=setTimeout(()=>el.classList.remove('on'),1500);}else el.classList.remove('on');}
+function lvUp(){const t=document.createElement('div');t.className='lv';t.textContent=`LEVEL ${level} UP!`;document.body.appendChild(t);setTimeout(()=>t.remove(),1050);clearInterval(spawnTmr);spawnTmr=setInterval(spawn,IVLS[level-1]||2500);}
+function start(){init();running=true;document.querySelectorAll('.wb').forEach(el=>el.remove());document.getElementById('ov').classList.add('off');inp.value='';hud();refreshCombo();setTimeout(()=>inp.focus(),80);spawn();spawnTmr=setInterval(spawn,IVLS[0]);rafId=requestAnimationFrame(tick);}
+function over(){running=false;clearInterval(spawnTmr);cancelAnimationFrame(rafId);document.getElementById('ov-title').textContent='게임 오버';document.getElementById('ov-sub').textContent='수고하셨어요!';document.getElementById('fs').textContent=score;document.getElementById('fl').textContent=level;document.getElementById('fc').textContent=maxCombo+'콤보';document.getElementById('ov-sc').style.display='block';document.getElementById('btn').textContent='다시 시작';document.getElementById('ov').classList.remove('off');}
+document.getElementById('btn').addEventListener('click',start);
+</script>
+</body>
+</html>
